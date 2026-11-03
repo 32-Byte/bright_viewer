@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BRIGHT Viewer</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header id="top">
+    <div class="brand">BRIGHT <span>viewer</span></div>
+    <div class="seg" id="viewSeg" title="m">
+      <button data-v="mosaic" class="on">Mosaic</button><button data-v="grid">Grid</button>
+    </div>
+    <select id="scope" title="What to show"></select>
+    <input id="search" type="search" placeholder="Find tile name…" autocomplete="off">
+    <span id="count" class="muted"></span>
+    <span class="grow"></span>
+    <label class="inline">Run <select id="run"><option value="">none</option></select></label>
+    <button id="rescan" title="Look for new evaluation folders in results/">↻ Rescan runs</button>
+    <button id="helpBtn" title="Keyboard shortcuts">?</button>
+  </header>
+
+  <aside id="side">
+    <section>
+      <h3>Base image</h3>
+      <div class="seg wide" id="baseSeg">
+        <button data-b="opt" class="on" title="o">Optical (pre)</button><button data-b="sar" title="s">SAR (post)</button><button data-b="none" title="n">None</button>
+      </div>
+      <label class="slider">Brightness <input type="range" id="bright" min="0.3" max="3" step="0.05" value="1"></label>
+      <label class="slider">Contrast <input type="range" id="contrast" min="0.3" max="3" step="0.05" value="1"></label>
+    </section>
+
+    <section>
+      <h3>Overlays</h3>
+      <div class="ovrow"><label><input type="checkbox" id="ov_gt"> Ground truth <kbd>g</kbd></label><input type="range" id="a_gt" min="0" max="1" step="0.05" value="0.7"></div>
+      <div class="ovrow"><label><input type="checkbox" id="ov_pred"> Prediction <kbd>p</kbd></label><input type="range" id="a_pred" min="0" max="1" step="0.05" value="0.7"></div>
+      <div class="ovrow"><label><input type="checkbox" id="ov_err"> Errors <kbd>e</kbd></label><input type="range" id="a_err" min="0" max="1" step="0.05" value="0.9"></div>
+      <div class="ovrow"><label><input type="checkbox" id="ov_split"> Split colour <kbd>t</kbd></label><input type="range" id="a_split" min="0" max="1" step="0.05" value="0.4"></div>
+      <label class="inline full">Split scheme <select id="scheme"></select></label>
+      <div id="runNote" class="note"></div>
+    </section>
+
+    <section>
+      <h3>Filter <button id="resetFilt" class="link">reset</button></h3>
+      <div class="sub">Split</div>
+      <div id="f_splits" class="chips"></div>
+      <div class="sub">Disaster type</div>
+      <div id="f_types" class="chips"></div>
+      <label class="slider">Building ≥ <span id="f_bld_v">0</span>% of tile <input type="range" id="f_bld" min="0" max="60" step="1" value="0"></label>
+      <label class="slider">Damaged+destroyed ≥ <span id="f_dmg_v">0</span>% of buildings <input type="range" id="f_dmg" min="0" max="100" step="1" value="0"></label>
+      <label class="check"><input type="checkbox" id="f_pred"> Only tiles that have predictions</label>
+      <label class="inline full">Grid order <select id="sort">
+        <option value="event">event, then name</option>
+        <option value="bld">most buildings</option>
+        <option value="dmg">most damage (of buildings)</option>
+        <option value="destroyed">most destroyed</option>
+        <option value="nodata">most no-data (black)</option>
+        <option value="miou">worst tile mIoU (run)</option>
+        <option value="err">most building errors (run)</option>
+        <option value="name">name</option>
+      </select></label>
+    </section>
+
+    <section>
+      <h3>Selection</h3>
+      <div id="stats"></div>
+    </section>
+
+    <section>
+      <h3>Legend</h3>
+      <div id="legend"></div>
+    </section>
+  </aside>
+
+  <main id="main">
+    <canvas id="cv"></canvas>
+    <div id="tip" hidden></div>
+    <div id="toast" hidden></div>
+    <div id="zoomHint" class="muted">drag to pan · scroll to zoom · click a tile for details · <kbd>f</kbd> fit</div>
+  </main>
+
+  <div id="detail" hidden>
+    <div class="dlg">
+      <div class="dhead">
+        <div id="d_title"></div>
+        <div class="dbtns">
+          <button id="d_prev" title="←">← prev</button><button id="d_next" title="→">next →</button><button id="d_close" title="Esc">✕</button>
+        </div>
+      </div>
+      <div id="d_info"></div>
+      <div class="dctl">
+        <span>Masks drawn over</span>
+        <div class="seg" id="d_baseSeg"><button data-b="opt" class="on">Optical</button><button data-b="sar">SAR</button></div>
+        <label class="slider inline">mask opacity <input type="range" id="d_alpha" min="0" max="1" step="0.05" value="0.65"></label>
+        <span class="muted">scroll to zoom · drag to pan · double-click to reset (all panels move together)</span>
+      </div>
+      <div id="d_panels"></div>
+    </div>
+  </div>
+
+  <div id="helpBox" hidden>
+    <div class="dlg small">
+      <div class="dhead"><b>Shortcuts</b><button id="helpClose">✕</button></div>
+      <table class="keys">
+        <tr><td><kbd>m</kbd></td><td>switch mosaic / grid</td></tr>
+        <tr><td><kbd>o</kbd> <kbd>s</kbd> <kbd>n</kbd></td><td>base image: optical / SAR / none</td></tr>
+        <tr><td><kbd>g</kbd> <kbd>p</kbd> <kbd>e</kbd> <kbd>t</kbd></td><td>toggle ground truth / prediction / errors / split colour</td></tr>
+        <tr><td><kbd>f</kbd></td><td>fit view</td></tr>
+        <tr><td><kbd>←</kbd> <kbd>→</kbd> <kbd>Esc</kbd></td><td>in the tile view: previous / next / close</td></tr>
+      </table>
+      <p class="muted">Mosaic re-stitches tiles into their original scenes from the GeoTIFF coordinates; tiles that fail
+        the filter are dimmed. Grid shows only the matching tiles, ordered by the "Grid order" setting.
+        The view state is kept in the URL, so you can send a link to a teammate.</p>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
